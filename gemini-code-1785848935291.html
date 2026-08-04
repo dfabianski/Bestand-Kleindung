@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSA & Arbeitskleidung Verwaltung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg font-bold">PSA</div>
+                <h1 class="text-xl font-bold text-slate-900">PSA & Kleidungsinventar</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleModal('modalMitarbeiter')" class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg font-medium transition">
+                    + Mitarbeiter
+                </button>
+                <button onclick="toggleModal('modalArtikel')" class="text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg font-medium transition">
+                    + Artikel
+                </button>
+                <button onclick="loadData()" class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg transition">
+                    🔄
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Artikel Typen</p>
+                <p id="kpi-typen" class="text-3xl font-bold text-slate-900 mt-2">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Gesamtbestand Stk.</p>
+                <p id="kpi-bestand" class="text-3xl font-bold text-blue-600 mt-2">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Kritischer Bestand (&le; Min)</p>
+                <p id="kpi-kritisch" class="text-3xl font-bold text-amber-600 mt-2">-</p>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left: Issuance Form -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Zuweisung buchen</h2>
+                
+                <form id="issueForm" onsubmit="submitBooking(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Mitarbeiter</label>
+                        <select id="selectMitarbeiter" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Lade Mitarbeiter...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Artikel</label>
+                        <select id="selectArtikel" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Lade Artikel...</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Größe</label>
+                            <input type="text" id="inputGroesse" placeholder="z.B. XL / 43" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Menge</label>
+                            <input type="number" id="inputMenge" value="1" min="1" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Bemerkung</label>
+                        <input type="text" id="inputBemerkung" placeholder="z.B. Erstausstattung" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition shadow-sm">
+                        Zuweisung Buchen
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right: Tables -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Inventory Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 font-bold text-slate-900 flex justify-between items-center">
+                        <span>Aktueller Lagerbestand</span>
+                        <button onclick="toggleModal('modalArtikel')" class="text-xs text-blue-600 hover:underline">+ Neuer Artikel</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 uppercase text-xs border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-3">Bezeichnung</th>
+                                    <th class="px-6 py-3">Kategorie</th>
+                                    <th class="px-6 py-3">Größe</th>
+                                    <th class="px-6 py-3">Ist-Bestand</th>
+                                    <th class="px-6 py-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblArtikel" class="divide-y divide-slate-100">
+                                <tr><td colspan="5" class="px-6 py-4 text-center">Daten werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 font-bold text-slate-900">
+                        Letzte Zuweisungen
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 uppercase text-xs border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-3">Datum</th>
+                                    <th class="px-6 py-3">Mitarbeiter</th>
+                                    <th class="px-6 py-3">Artikel</th>
+                                    <th class="px-6 py-3">Größe</th>
+                                    <th class="px-6 py-3">Menge</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblZuweisungen" class="divide-y divide-slate-100">
+                                <tr><td colspan="5" class="px-6 py-4 text-center">Daten werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Neuer Artikel -->
+    <div id="modalArtikel" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Neuen Artikel anlegen</h3>
+            <form onsubmit="submitNewArtikel(event)" class="space-y-3">
+                <input type="text" id="artBezeichnung" placeholder="Bezeichnung (z.B. S3 Sicherheitsschuh)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="artKategorie" placeholder="Kategorie (z.B. Schuhe)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="artGroesse" placeholder="Größe (z.B. 43)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="number" id="artIst" placeholder="Startbestand" required class="w-full border rounded-lg p-2.5 text-sm">
+                    <input type="number" id="artSoll" placeholder="Mindestbestand" required class="w-full border rounded-lg p-2.5 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('modalArtikel')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Neuer Mitarbeiter -->
+    <div id="modalMitarbeiter" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Neuen Mitarbeiter anlegen</h3>
+            <form onsubmit="submitNewMitarbeiter(event)" class="space-y-3">
+                <input type="text" id="maName" placeholder="Vollständiger Name" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="maAbteilung" placeholder="Abteilung (z.B. Logistik)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="maKleidung" placeholder="Kleidergröße (z.B. L)" class="w-full border rounded-lg p-2.5 text-sm">
+                    <input type="text" id="maSchuh" placeholder="Schuhgröße (z.B. 43)" class="w-full border rounded-lg p-2.5 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('modalMitarbeiter')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // HIER IST DIE NEUE URL DRIN!
+        const API_URL = "https://script.google.com/macros/s/AKfycbxqXC14ggyO51vlPkipEwbMik5eYXGsycWwwq9_bkIQPlzSG67DZXUz7DOaF6H-rJkZMQ/exec";
+        let globalData = {};
+
+        function toggleModal(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch(API_URL);
+                globalData = await res.json();
+                
+                renderKPIs();
+                renderDropdowns();
+                renderTables();
+            } catch (err) {
+                alert("Fehler beim Laden der Daten.");
+                console.error(err);
+            }
+        }
+
+        function renderKPIs() {
+            const artikel = globalData.artikel || [];
+            document.getElementById("kpi-typen").innerText = artikel.length;
+            
+            const totalStock = artikel.reduce((acc, curr) => acc + (parseInt(curr.IstBestand) || 0), 0);
+            document.getElementById("kpi-bestand").innerText = totalStock;
+
+            const critical = artikel.filter(a => parseInt(a.IstBestand) <= parseInt(a.SollMinimum)).length;
+            document.getElementById("kpi-kritisch").innerText = critical;
+        }
+
+        function renderDropdowns() {
+            const maSelect = document.getElementById("selectMitarbeiter");
+            maSelect.innerHTML = '<option value="">-- Mitarbeiter wählen --</option>';
+            (globalData.mitarbeiter || []).forEach(m => {
+                maSelect.innerHTML += `<option value="${m.Name}">${m.Name} (${m.Abteilung})</option>`;
+            });
+
+            const artSelect = document.getElementById("selectArtikel");
+            artSelect.innerHTML = '<option value="">-- Artikel wählen --</option>';
+            const uniqueArt = [...new Set((globalData.artikel || []).map(a => a.Bezeichnung))];
+            uniqueArt.forEach(a => {
+                artSelect.innerHTML += `<option value="${a}">${a}</option>`;
+            });
+        }
+
+        function renderTables() {
+            const tblArt = document.getElementById("tblArtikel");
+            tblArt.innerHTML = "";
+            (globalData.artikel || []).forEach(a => {
+                const isLow = parseInt(a.IstBestand) <= parseInt(a.SollMinimum);
+                const badge = isLow 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">Nachbestellen</span>`
+                    : `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">OK</span>`;
+
+                tblArt.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4 font-medium text-slate-900">${a.Bezeichnung}</td>
+                        <td class="px-6 py-4">${a.Kategorie}</td>
+                        <td class="px-6 py-4">${a.Groesse}</td>
+                        <td class="px-6 py-4 font-bold ${isLow ? 'text-red-600' : 'text-slate-900'}">${a.IstBestand}</td>
+                        <td class="px-6 py-4">${badge}</td>
+                    </tr>
+                `;
+            });
+
+            const tblZuw = document.getElementById("tblZuweisungen");
+            tblZuw.innerHTML = "";
+            const list = [...(globalData.zuweisungen || [])].reverse();
+            list.forEach(z => {
+                const date = z.Zeitstempel ? new Date(z.Zeitstempel).toLocaleDateString("de-DE") : "-";
+                tblZuw.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4">${date}</td>
+                        <td class="px-6 py-4 font-medium text-slate-900">${z.MitarbeiterName}</td>
+                        <td class="px-6 py-4">${z.ArtikelName}</td>
+                        <td class="px-6 py-4">${z.Groesse}</td>
+                        <td class="px-6 py-4 font-bold">${z.Menge}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function submitBooking(e) {
+            e.preventDefault();
+            const btn = document.getElementById("submitBtn");
+            btn.disabled = true;
+
+            const payload = {
+                action: "buchen",
+                mitarbeiterName: document.getElementById("selectMitarbeiter").value,
+                artikelName: document.getElementById("selectArtikel").value,
+                groesse: document.getElementById("inputGroesse").value,
+                menge: document.getElementById("inputMenge").value,
+                bemerkung: document.getElementById("inputBemerkung").value
+            };
+
+            await sendApiRequest(payload);
+            document.getElementById("issueForm").reset();
+            btn.disabled = false;
+        }
+
+        async function submitNewArtikel(e) {
+            e.preventDefault();
+            const payload = {
+                action: "addArtikel",
+                bezeichnung: document.getElementById("artBezeichnung").value,
+                kategorie: document.getElementById("artKategorie").value,
+                groesse: document.getElementById("artGroesse").value,
+                istBestand: document.getElementById("artIst").value,
+                sollMinimum: document.getElementById("artSoll").value
+            };
+
+            await sendApiRequest(payload);
+            toggleModal('modalArtikel');
+        }
+
+        async function submitNewMitarbeiter(e) {
+            e.preventDefault();
+            const payload = {
+                action: "addMitarbeiter",
+                name: document.getElementById("maName").value,
+                abteilung: document.getElementById("maAbteilung").value,
+                kleidergroesse: document.getElementById("maKleidung").value,
+                schuhgroesse: document.getElementById("maSchuh").value
+            };
+
+            await sendApiRequest(payload);
+            toggleModal('modalMitarbeiter');
+        }
+
+        async function sendApiRequest(payload) {
+            try {
+                await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+                await loadData();
+            } catch (err) {
+                alert("Fehler bei der Übertragung.");
+                console.error(err);
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
