@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kleidungsmanager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="fixed top-5 right-5 z-50 hidden bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg font-medium transition-all duration-300">
+        <span id="toastMsg">Aktion erfolgreich ausgeführt!</span>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <img src="logo.png" alt="Logo" class="h-9 w-auto object-contain">
+                <h1 class="text-xl font-bold text-slate-900">Kleidungsmanager</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleModal('modalMitarbeiter')" class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg font-medium transition">
+                    + Mitarbeiter
+                </button>
+                <button onclick="toggleModal('modalArtikel')" class="text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg font-medium transition">
+                    + Artikel
+                </button>
+                <button onclick="loadData()" class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg transition" title="Daten aktualisieren">
+                    🔄
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Artikel Typen</p>
+                <p id="kpi-typen" class="text-3xl font-bold text-slate-900 mt-2">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-sm font-medium text-slate-500">Gesamtbestand Stk.</p>
+                <p id="kpi-bestand" class="text-3xl font-bold text-blue-600 mt-2">-</p>
+            </div>
+            <div onclick="toggleKritischFilter()" id="cardKritisch" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-amber-400 transition">
+                <div class="flex justify-between items-start">
+                    <p class="text-sm font-medium text-slate-500">Kritischer Bestand (&le; Min)</p>
+                    <span id="badgeKritischFilter" class="hidden text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">Aktiv</span>
+                </div>
+                <p id="kpi-kritisch" class="text-3xl font-bold text-amber-600 mt-2">-</p>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left: Issuance Form -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Zuweisung buchen</h2>
+                
+                <form id="issueForm" onsubmit="submitBooking(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Mitarbeiter</label>
+                        <select id="selectMitarbeiter" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Lade Mitarbeiter...</option>
+                        </select>
+                        <p id="maSizeHint" class="text-xs text-slate-500 mt-1 h-4"></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Artikel</label>
+                        <select id="selectArtikel" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Lade Artikel...</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Größe</label>
+                            <select id="selectGroesse" required disabled class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-100 text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">Erst Artikel wählen...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Menge</label>
+                            <input type="number" id="inputMenge" value="1" min="1" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Bemerkung</label>
+                        <input type="text" id="inputBemerkung" placeholder="z.B. Erstausstattung" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition shadow-sm flex justify-center items-center gap-2">
+                        <span>Zuweisung Buchen</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right: Tables -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Inventory Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap gap-3 justify-between items-center">
+                        <span class="font-bold text-slate-900">Aktueller Lagerbestand</span>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="searchArtikel" oninput="renderTables()" placeholder="🔍 Artikel suchen..." class="border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <button onclick="exportCSV('artikel')" class="text-xs border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded font-medium transition">📥 CSV</button>
+                            <button onclick="toggleModal('modalArtikel')" class="text-xs text-blue-600 hover:underline">+ Neuer Artikel</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 uppercase text-xs border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-3">Bezeichnung</th>
+                                    <th class="px-6 py-3">Kategorie</th>
+                                    <th class="px-6 py-3">Größe</th>
+                                    <th class="px-6 py-3">Ist-Bestand</th>
+                                    <th class="px-6 py-3">Status</th>
+                                    <th class="px-6 py-3 text-right">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblArtikel" class="divide-y divide-slate-100">
+                                <tr><td colspan="6" class="px-6 py-4 text-center">Daten werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap gap-3 justify-between items-center">
+                        <span class="font-bold text-slate-900">Letzte Zuweisungen</span>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="searchZuweisung" oninput="renderTables()" placeholder="🔍 Zuweisung suchen..." class="border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <button onclick="exportCSV('zuweisungen')" class="text-xs border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded font-medium transition">📥 CSV</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 uppercase text-xs border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-3">Datum</th>
+                                    <th class="px-6 py-3">Mitarbeiter</th>
+                                    <th class="px-6 py-3">Artikel</th>
+                                    <th class="px-6 py-3">Größe</th>
+                                    <th class="px-6 py-3">Menge</th>
+                                    <th class="px-6 py-3 text-right">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblZuweisungen" class="divide-y divide-slate-100">
+                                <tr><td colspan="6" class="px-6 py-4 text-center">Daten werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Neuer Artikel -->
+    <div id="modalArtikel" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Neuen Artikel anlegen</h3>
+            <form onsubmit="submitNewArtikel(event)" class="space-y-3">
+                <input type="text" id="artBezeichnung" placeholder="Bezeichnung (z.B. S3 Sicherheitsschuh)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="artKategorie" placeholder="Kategorie (z.B. Schuhe)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="artGroesse" placeholder="Größe (z.B. 43)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="number" id="artIst" placeholder="Startbestand" required class="w-full border rounded-lg p-2.5 text-sm">
+                    <input type="number" id="artSoll" placeholder="Mindestbestand" required class="w-full border rounded-lg p-2.5 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('modalArtikel')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Neuer Mitarbeiter -->
+    <div id="modalMitarbeiter" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Neuen Mitarbeiter anlegen</h3>
+            <form onsubmit="submitNewMitarbeiter(event)" class="space-y-3">
+                <input type="text" id="maName" placeholder="Vollständiger Name" required class="w-full border rounded-lg p-2.5 text-sm">
+                <input type="text" id="maAbteilung" placeholder="Abteilung (z.B. Logistik)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="maKleidung" placeholder="Kleidergröße (z.B. L)" class="w-full border rounded-lg p-2.5 text-sm">
+                    <input type="text" id="maSchuh" placeholder="Schuhgröße (z.B. 43)" class="w-full border rounded-lg p-2.5 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('modalMitarbeiter')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Bestand Aufstocken -->
+    <div id="modalStock" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Bestand erhöhen</h3>
+            <p id="stockArtikelTitle" class="text-sm text-slate-500 font-medium"></p>
+            <form onsubmit="submitAddStock(event)" class="space-y-3">
+                <input type="hidden" id="stockArtikelId">
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Liefermenge dazurechnen</label>
+                    <input type="number" id="stockMenge" min="1" value="1" required class="w-full border rounded-lg p-2.5 text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="toggleModal('modalStock')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-green-600 text-white font-medium rounded-lg hover:bg-green-700">+ Aufstocken</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbwTMg_29PbkdZKGu_goMcqaHsFdqf_HuhD7aYuwIJ_DFKu4ZlILrSd2DHMykLMBwkZd/exec";
+        let globalData = {};
+        let showOnlyKritisch = false;
+
+        function toggleModal(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            document.getElementById("toastMsg").innerText = msg;
+            toast.classList.remove("hidden");
+            setTimeout(() => toast.classList.add("hidden"), 3000);
+        }
+
+        function setButtonLoading(btnId, isLoading, text = "") {
+            const btn = document.getElementById(btnId);
+            if (isLoading) {
+                btn.disabled = true;
+                btn.dataset.origText = btn.innerHTML;
+                btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Speichere...</span>`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.origText || text;
+            }
+        }
+
+        function openStockModal(id, title) {
+            document.getElementById("stockArtikelId").value = id;
+            document.getElementById("stockArtikelTitle").innerText = title;
+            toggleModal("modalStock");
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch(API_URL, { method: "GET", redirect: "follow" });
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                globalData = await res.json();
+                
+                renderKPIs();
+                renderDropdowns();
+                renderTables();
+            } catch (err) {
+                alert("Fehler beim Laden der Daten.");
+                console.error("Fetch Fehler:", err);
+            }
+        }
+
+        function renderKPIs() {
+            const artikel = globalData.artikel || [];
+            document.getElementById("kpi-typen").innerText = artikel.length;
+            
+            const totalStock = artikel.reduce((acc, curr) => acc + (parseInt(curr.IstBestand) || 0), 0);
+            document.getElementById("kpi-bestand").innerText = totalStock;
+
+            const critical = artikel.filter(a => parseInt(a.IstBestand) <= parseInt(a.SollMinimum)).length;
+            document.getElementById("kpi-kritisch").innerText = critical;
+        }
+
+        function toggleKritischFilter() {
+            showOnlyKritisch = !showOnlyKritisch;
+            const badge = document.getElementById("badgeKritischFilter");
+            const card = document.getElementById("cardKritisch");
+            
+            if (showOnlyKritisch) {
+                badge.classList.remove("hidden");
+                card.classList.add("ring-2", "ring-amber-400");
+            } else {
+                badge.classList.add("hidden");
+                card.classList.remove("ring-2", "ring-amber-400");
+            }
+            renderTables();
+        }
+
+        function renderDropdowns() {
+            const maSelect = document.getElementById("selectMitarbeiter");
+            maSelect.innerHTML = '<option value="">-- Mitarbeiter wählen --</option>';
+            (globalData.mitarbeiter || []).forEach(m => {
+                maSelect.innerHTML += `<option value="${m.Name}">${m.Name} (${m.Abteilung})</option>`;
+            });
+
+            const artSelect = document.getElementById("selectArtikel");
+            artSelect.innerHTML = '<option value="">-- Artikel wählen --</option>';
+            const uniqueArt = [...new Set((globalData.artikel || []).map(a => a.Bezeichnung))];
+            uniqueArt.forEach(a => {
+                artSelect.innerHTML += `<option value="${a}">${a}</option>`;
+            });
+
+            artSelect.onchange = updateGroessenDropdown;
+            maSelect.onchange = updateMitarbeiterSizes;
+        }
+
+        function updateMitarbeiterSizes() {
+            const selectedMaName = document.getElementById("selectMitarbeiter").value;
+            const hint = document.getElementById("maSizeHint");
+            if (!selectedMaName) {
+                hint.innerText = "";
+                return;
+            }
+            const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
+            if (ma) {
+                const sizes = [];
+                if (ma.Kleidergroesse) sizes.push(`Kleidung: ${ma.Kleidergroesse}`);
+                if (ma.Schuhgroesse) sizes.push(`Schuhe: ${ma.Schuhgroesse}`);
+                hint.innerText = sizes.length > 0 ? `Hinterlegt: ${sizes.join(" | ")}` : "Keine Größen hinterlegt";
+            }
+        }
+
+        function updateGroessenDropdown() {
+            const selectedArtikel = document.getElementById("selectArtikel").value;
+            const groessenSelect = document.getElementById("selectGroesse");
+
+            if (!selectedArtikel) {
+                groessenSelect.innerHTML = '<option value="">Erst Artikel wählen...</option>';
+                groessenSelect.disabled = true;
+                groessenSelect.classList.add("bg-slate-100");
+                return;
+            }
+
+            const passendeArtikel = (globalData.artikel || []).filter(a => a.Bezeichnung === selectedArtikel);
+            
+            groessenSelect.innerHTML = '<option value="">-- Größe wählen --</option>';
+            passendeArtikel.forEach(a => {
+                groessenSelect.innerHTML += `<option value="${a.Groesse}" data-stock="${a.IstBestand}">${a.Groesse} (Auf Lager: ${a.IstBestand})</option>`;
+            });
+
+            groessenSelect.disabled = false;
+            groessenSelect.classList.remove("bg-slate-100");
+
+            const selectedMaName = document.getElementById("selectMitarbeiter").value;
+            if (selectedMaName) {
+                const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
+                if (ma) {
+                    const matchedOption = Array.from(groessenSelect.options).find(opt => 
+                        opt.value === ma.Kleidergroesse || opt.value === ma.Schuhgroesse
+                    );
+                    if (matchedOption) matchedOption.selected = true;
+                }
+            }
+
+            groessenSelect.onchange = updateMaxMenge;
+            updateMaxMenge();
+        }
+
+        function updateMaxMenge() {
+            const groessenSelect = document.getElementById("selectGroesse");
+            const selectedOption = groessenSelect.options[groessenSelect.selectedIndex];
+            const mengeInput = document.getElementById("inputMenge");
+
+            if (selectedOption && selectedOption.dataset.stock) {
+                const stock = parseInt(selectedOption.dataset.stock);
+                mengeInput.max = stock;
+                if (parseInt(mengeInput.value) > stock) mengeInput.value = Math.max(1, stock);
+            } else {
+                mengeInput.removeAttribute("max");
+            }
+        }
+
+        function renderTables() {
+            const tblArt = document.getElementById("tblArtikel");
+            const queryArt = document.getElementById("searchArtikel").value.toLowerCase();
+            tblArt.innerHTML = "";
+            
+            let artikelList = globalData.artikel || [];
+
+            if (showOnlyKritisch) {
+                artikelList = artikelList.filter(a => parseInt(a.IstBestand) <= parseInt(a.SollMinimum));
+            }
+
+            if (queryArt) {
+                artikelList = artikelList.filter(a => 
+                    (a.Bezeichnung && a.Bezeichnung.toLowerCase().includes(queryArt)) ||
+                    (a.Kategorie && a.Kategorie.toLowerCase().includes(queryArt)) ||
+                    (a.Groesse && String(a.Groesse).toLowerCase().includes(queryArt))
+                );
+            }
+
+            if (artikelList.length === 0) {
+                tblArt.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-slate-400">Keine passenden Artikel vorhanden</td></tr>`;
+            } else {
+                artikelList.forEach(a => {
+                    const isLow = parseInt(a.IstBestand) <= parseInt(a.SollMinimum);
+                    const badge = isLow 
+                        ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">Nachbestellen</span>`
+                        : `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">OK</span>`;
+
+                    const titleEscaped = `${a.Bezeichnung} (${a.Groesse})`.replace(/'/g, "\\'");
+
+                    tblArt.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-6 py-4 font-medium text-slate-900">${a.Bezeichnung || ''}</td>
+                            <td class="px-6 py-4">${a.Kategorie || ''}</td>
+                            <td class="px-6 py-4">${a.Groesse || ''}</td>
+                            <td class="px-6 py-4 font-bold ${isLow ? 'text-red-600' : 'text-slate-900'}">${a.IstBestand || 0}</td>
+                            <td class="px-6 py-4">${badge}</td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="openStockModal('${a.ID}', '${titleEscaped}')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded font-medium transition">
+                                    + Aufstocken
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            const tblZuw = document.getElementById("tblZuweisungen");
+            const queryZuw = document.getElementById("searchZuweisung").value.toLowerCase();
+            tblZuw.innerHTML = "";
+            let list = [...(globalData.zuweisungen || [])].reverse();
+
+            if (queryZuw) {
+                list = list.filter(z => {
+                    const m = (z.MitarbeiterName || z.Mitarbeiter || '').toLowerCase();
+                    const a = (z.ArtikelName || z.Artikel || '').toLowerCase();
+                    return m.includes(queryZuw) || a.includes(queryZuw);
+                });
+            }
+
+            if (list.length === 0) {
+                tblZuw.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-slate-400">Keine passenden Zuweisungen vorhanden</td></tr>`;
+            } else {
+                list.forEach(z => {
+                    const mitarbeiter = z.MitarbeiterName || z.Mitarbeiter || '-';
+                    const artikel = z.ArtikelName || z.Artikel || '-';
+                    const groesse = z.Groesse || '-';
+                    const menge = z.Menge || 0;
+                    
+                    let dateStr = '-';
+                    if (z.Zeitstempel) {
+                        const parsedDate = new Date(z.Zeitstempel);
+                        if (!isNaN(parsedDate.getTime())) {
+                            dateStr = parsedDate.toLocaleDateString("de-DE", {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+                    }
+
+                    tblZuw.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-6 py-4 text-slate-500 text-xs">${dateStr}</td>
+                            <td class="px-6 py-4 font-medium text-slate-900">${mitarbeiter}</td>
+                            <td class="px-6 py-4">${artikel}</td>
+                            <td class="px-6 py-4">${groesse}</td>
+                            <td class="px-6 py-4 font-bold">${menge}</td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="returnBooking('${z.ID}')" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded transition" title="Stornieren / Rückgabe">
+                                    ↩️ Rückgabe
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        async function submitBooking(e) {
+            e.preventDefault();
+            setButtonLoading("submitBtn", true);
+
+            const payload = {
+                action: "buchen",
+                mitarbeiterName: document.getElementById("selectMitarbeiter").value,
+                artikelName: document.getElementById("selectArtikel").value,
+                groesse: document.getElementById("selectGroesse").value,
+                menge: document.getElementById("inputMenge").value,
+                bemerkung: document.getElementById("inputBemerkung").value
+            };
+
+            await sendApiRequest(payload, "Zuweisung erfolgreich gebucht!");
+            document.getElementById("issueForm").reset();
+            updateGroessenDropdown();
+            setButtonLoading("submitBtn", false);
+        }
+
+        async function returnBooking(id) {
+            if (!confirm("Möchtest du diese Zuweisung stornieren und den Artikel zurück ins Lager buchen?")) return;
+            await sendApiRequest({ action: "returnBooking", zuweisungId: id }, "Artikel erfolgreich zurückgebucht!");
+        }
+
+        async function submitAddStock(e) {
+            e.preventDefault();
+            const payload = {
+                action: "addStock",
+                artikelId: document.getElementById("stockArtikelId").value,
+                menge: document.getElementById("stockMenge").value
+            };
+
+            await sendApiRequest(payload, "Bestand erfolgreich aufgestockt!");
+            toggleModal('modalStock');
+        }
+
+        async function submitNewArtikel(e) {
+            e.preventDefault();
+            const payload = {
+                action: "addArtikel",
+                bezeichnung: document.getElementById("artBezeichnung").value,
+                kategorie: document.getElementById("artKategorie").value,
+                groesse: document.getElementById("artGroesse").value,
+                istBestand: document.getElementById("artIst").value,
+                sollMinimum: document.getElementById("artSoll").value
+            };
+
+            await sendApiRequest(payload, "Artikel neu angelegt!");
+            toggleModal('modalArtikel');
+        }
+
+        async function submitNewMitarbeiter(e) {
+            e.preventDefault();
+            const payload = {
+                action: "addMitarbeiter",
+                name: document.getElementById("maName").value,
+                abteilung: document.getElementById("maAbteilung").value,
+                kleidergroesse: document.getElementById("maKleidung").value,
+                schuhgroesse: document.getElementById("maSchuh").value
+            };
+
+            await sendApiRequest(payload, "Mitarbeiter angelegt!");
+            toggleModal('modalMitarbeiter');
+        }
+
+        async function sendApiRequest(payload, successMsg) {
+            try {
+                await fetch(API_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(payload)
+                });
+                
+                showToast(successMsg);
+                setTimeout(loadData, 1200);
+            } catch (err) {
+                alert("Fehler bei der Übertragung.");
+                console.error(err);
+            }
+        }
+
+        function exportCSV(type) {
+            let data = [];
+            let filename = `${type}_export.csv`;
+
+            if (type === 'artikel') {
+                data = globalData.artikel || [];
+            } else if (type === 'zuweisungen') {
+                data = globalData.zuweisungen || [];
+            }
+
+            if (data.length === 0) {
+                alert("Keine Daten zum Exportieren vorhanden.");
+                return;
+            }
+
+            const headers = Object.keys(data[0]);
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(";") + "\n"
+                + data.map(row => headers.map(h => `"${row[h] || ''}"`).join(";")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
