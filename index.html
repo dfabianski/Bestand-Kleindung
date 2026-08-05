@@ -68,7 +68,7 @@
                         <select id="selectMitarbeiter" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
                             <option value="">Lade Mitarbeiter...</option>
                         </select>
-                        <p id="maSizeHint" class="text-xs text-slate-500 mt-1 h-4"></p>
+                        <p id="maSizeHint" class="text-xs text-slate-500 mt-1 h-5 leading-tight"></p>
                     </div>
 
                     <div>
@@ -172,8 +172,14 @@
             <h3 class="text-lg font-bold text-slate-900">Neuen Artikel anlegen</h3>
             <form onsubmit="submitNewArtikel(event)" class="space-y-3">
                 <input type="text" id="artBezeichnung" placeholder="Bezeichnung (z.B. S3 Sicherheitsschuh)" required class="w-full border rounded-lg p-2.5 text-sm">
-                <input type="text" id="artKategorie" placeholder="Kategorie (z.B. Schuhe)" required class="w-full border rounded-lg p-2.5 text-sm">
-                <input type="text" id="artGroesse" placeholder="Größe (z.B. 43)" required class="w-full border rounded-lg p-2.5 text-sm">
+                <select id="artKategorie" required class="w-full border rounded-lg p-2.5 text-sm bg-white">
+                    <option value="">-- Kategorie wählen --</option>
+                    <option value="Oberteil">Oberteil</option>
+                    <option value="Hose">Hose</option>
+                    <option value="Schuhe">Schuhe</option>
+                    <option value="Sonstiges">Sonstiges / PSA</option>
+                </select>
+                <input type="text" id="artGroesse" placeholder="Größe (z.B. 43, L, 50)" required class="w-full border rounded-lg p-2.5 text-sm">
                 <div class="grid grid-cols-2 gap-3">
                     <input type="number" id="artIst" placeholder="Startbestand" required class="w-full border rounded-lg p-2.5 text-sm">
                     <input type="number" id="artSoll" placeholder="Mindestbestand" required class="w-full border rounded-lg p-2.5 text-sm">
@@ -186,17 +192,21 @@
         </div>
     </div>
 
-    <!-- Modal: Neuer Mitarbeiter -->
+    <!-- Modal: Neuer Mitarbeiter (Erweitert um Oberteil, Hose, Schuh) -->
     <div id="modalMitarbeiter" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h3 class="text-lg font-bold text-slate-900">Neuen Mitarbeiter anlegen</h3>
             <form onsubmit="submitNewMitarbeiter(event)" class="space-y-3">
                 <input type="text" id="maName" placeholder="Vollständiger Name" required class="w-full border rounded-lg p-2.5 text-sm">
                 <input type="text" id="maAbteilung" placeholder="Abteilung (z.B. Logistik)" required class="w-full border rounded-lg p-2.5 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="text" id="maKleidung" placeholder="Kleidergröße (z.B. L)" class="w-full border rounded-lg p-2.5 text-sm">
-                    <input type="text" id="maSchuh" placeholder="Schuhgröße (z.B. 43)" class="w-full border rounded-lg p-2.5 text-sm">
+                
+                <p class="text-xs font-semibold text-slate-500 pt-1">Größen hinterlegen:</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="text" id="maOberteil" placeholder="Oberteil (L)" class="w-full border rounded-lg p-2 text-xs">
+                    <input type="text" id="maHose" placeholder="Hose (50)" class="w-full border rounded-lg p-2 text-xs">
+                    <input type="text" id="maSchuh" placeholder="Schuhe (44)" class="w-full border rounded-lg p-2 text-xs">
                 </div>
+
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="toggleModal('modalMitarbeiter')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Abbrechen</button>
                     <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">Speichern</button>
@@ -317,6 +327,7 @@
             maSelect.onchange = updateMitarbeiterSizes;
         }
 
+        // Auslesen & Anzeigen aller 3 Größen
         function updateMitarbeiterSizes() {
             const selectedMaName = document.getElementById("selectMitarbeiter").value;
             const hint = document.getElementById("maSizeHint");
@@ -326,25 +337,38 @@
             }
             const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
             if (ma) {
-                const sizes = [];
-                if (ma.Kleidergroesse) sizes.push(`Kleidung: ${ma.Kleidergroesse}`);
-                if (ma.Schuhgroesse) sizes.push(`Schuhe: ${ma.Schuhgroesse}`);
-                hint.innerText = sizes.length > 0 ? `Hinterlegt: ${sizes.join(" | ")}` : "Keine Größen hinterlegt";
+                const parts = [];
+                // Unterstützt alte und neue Tabellenstruktur (Kleidergroesse / Oberteilgroesse / Hosengroesse / Schuhgroesse)
+                const oberteil = ma.Oberteilgroesse || ma.Kleidergroesse;
+                const hose = ma.Hosengroesse;
+                const schuh = ma.Schuhgroesse;
+
+                if (oberteil) parts.push(`Ob: ${oberteil}`);
+                if (hose) parts.push(`Hose: ${hose}`);
+                if (schuh) parts.push(`Schuh: ${schuh}`);
+
+                hint.innerText = parts.length > 0 ? `Hinterlegt: ${parts.join(" | ")}` : "Keine Größen hinterlegt";
+            }
+
+            // Falls bereits ein Artikel ausgewählt ist, Auswahl aktualisieren
+            if (document.getElementById("selectArtikel").value) {
+                updateGroessenDropdown();
             }
         }
 
+        // Intelligente Größenvorauswahl basierend auf Kategorie
         function updateGroessenDropdown() {
-            const selectedArtikel = document.getElementById("selectArtikel").value;
+            const selectedArtikelName = document.getElementById("selectArtikel").value;
             const groessenSelect = document.getElementById("selectGroesse");
 
-            if (!selectedArtikel) {
+            if (!selectedArtikelName) {
                 groessenSelect.innerHTML = '<option value="">Erst Artikel wählen...</option>';
                 groessenSelect.disabled = true;
                 groessenSelect.classList.add("bg-slate-100");
                 return;
             }
 
-            const passendeArtikel = (globalData.artikel || []).filter(a => a.Bezeichnung === selectedArtikel);
+            const passendeArtikel = (globalData.artikel || []).filter(a => a.Bezeichnung === selectedArtikelName);
             
             groessenSelect.innerHTML = '<option value="">-- Größe wählen --</option>';
             passendeArtikel.forEach(a => {
@@ -354,14 +378,31 @@
             groessenSelect.disabled = false;
             groessenSelect.classList.remove("bg-slate-100");
 
+            // Ermitteln, welche Größe bei der aktuellen Kategorie greift
             const selectedMaName = document.getElementById("selectMitarbeiter").value;
-            if (selectedMaName) {
+            if (selectedMaName && passendeArtikel.length > 0) {
                 const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
+                const kategorie = (passendeArtikel[0].Kategorie || "").toLowerCase();
+
                 if (ma) {
-                    const matchedOption = Array.from(groessenSelect.options).find(opt => 
-                        opt.value === ma.Kleidergroesse || opt.value === ma.Schuhgroesse
-                    );
-                    if (matchedOption) matchedOption.selected = true;
+                    let targetSize = "";
+                    if (kategorie.includes("oberteil") || kategorie.includes("jacke") || kategorie.includes("shirt")) {
+                        targetSize = ma.Oberteilgroesse || ma.Kleidergroesse;
+                    } else if (kategorie.includes("hose")) {
+                        targetSize = ma.Hosengroesse;
+                    } else if (kategorie.includes("schuh")) {
+                        targetSize = ma.Schuhgroesse;
+                    } else {
+                        // Fallback
+                        targetSize = ma.Oberteilgroesse || ma.Kleidergroesse || ma.Hosengroesse || ma.Schuhgroesse;
+                    }
+
+                    if (targetSize) {
+                        const matchedOption = Array.from(groessenSelect.options).find(opt => 
+                            String(opt.value).trim().toLowerCase() === String(targetSize).trim().toLowerCase()
+                        );
+                        if (matchedOption) matchedOption.selected = true;
+                    }
                 }
             }
 
@@ -538,7 +579,8 @@
                 action: "addMitarbeiter",
                 name: document.getElementById("maName").value,
                 abteilung: document.getElementById("maAbteilung").value,
-                kleidergroesse: document.getElementById("maKleidung").value,
+                oberteilgroesse: document.getElementById("maOberteil").value,
+                hosengroesse: document.getElementById("maHose").value,
                 schuhgroesse: document.getElementById("maSchuh").value
             };
 
