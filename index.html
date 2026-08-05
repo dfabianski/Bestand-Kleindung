@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kleidungsmanager</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-    <!-- Toast Notification Banner -->
     <div id="toast" class="fixed top-5 right-5 z-50 hidden bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg font-medium transition-all duration-300">
         <span id="toastMsg">Aktion erfolgreich ausgeführt!</span>
     </div>
@@ -55,16 +55,18 @@
             </div>
         </div>
 
-        <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-            <!-- Left: Issuance Form -->
+            <!-- Zuweisungs-Formular -->
             <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
                 <h2 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Zuweisung buchen</h2>
                 
                 <form id="issueForm" onsubmit="submitBooking(event)" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Mitarbeiter</label>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-slate-700">Mitarbeiter</label>
+                            <button type="button" onclick="openMitarbeiterProfile()" class="text-xs text-blue-600 hover:underline">Profil & Historie</button>
+                        </div>
                         <select id="selectMitarbeiter" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
                             <option value="">Lade Mitarbeiter...</option>
                         </select>
@@ -91,6 +93,11 @@
                         </div>
                     </div>
 
+                    <!-- Größen-Mismatch Warnhinweis -->
+                    <div id="mismatchWarning" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
+                        ⚠️ Hinweis: Gewählte Größe weicht von der hinterlegten Größe des Mitarbeiters ab.
+                    </div>
+
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Bemerkung</label>
                         <input type="text" id="inputBemerkung" placeholder="z.B. Erstausstattung" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
@@ -102,10 +109,9 @@
                 </form>
             </div>
 
-            <!-- Right: Tables -->
             <div class="lg:col-span-2 space-y-8">
                 
-                <!-- Inventory Table -->
+                <!-- Lagerbestand Table -->
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap gap-3 justify-between items-center">
                         <span class="font-bold text-slate-900">Aktueller Lagerbestand</span>
@@ -134,12 +140,18 @@
                     </div>
                 </div>
 
-                <!-- History Table -->
+                <!-- Historie Table mit Datumsfilter -->
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap gap-3 justify-between items-center">
                         <span class="font-bold text-slate-900">Letzte Zuweisungen</span>
                         <div class="flex items-center gap-2">
-                            <input type="text" id="searchZuweisung" oninput="renderTables()" placeholder="🔍 Zuweisung suchen..." class="border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <select id="filterZeitraum" onchange="renderTables()" class="border text-xs rounded-lg px-2 py-1.5 bg-white text-slate-700">
+                                <option value="all">Gesamter Zeitraum</option>
+                                <option value="30">Letzte 30 Tage</option>
+                                <option value="90">Letzte 90 Tage</option>
+                                <option value="365">Dieses Jahr</option>
+                            </select>
+                            <input type="text" id="searchZuweisung" oninput="renderTables()" placeholder="🔍 Suchen..." class="border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
                             <button onclick="exportCSV('zuweisungen')" class="text-xs border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded font-medium transition">📥 CSV</button>
                         </div>
                     </div>
@@ -192,7 +204,7 @@
         </div>
     </div>
 
-    <!-- Modal: Neuer Mitarbeiter (Erweitert um Oberteil, Hose, Schuh) -->
+    <!-- Modal: Neuer Mitarbeiter -->
     <div id="modalMitarbeiter" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h3 class="text-lg font-bold text-slate-900">Neuen Mitarbeiter anlegen</h3>
@@ -231,6 +243,53 @@
                     <button type="submit" class="px-4 py-2 text-sm bg-green-600 text-white font-medium rounded-lg hover:bg-green-700">+ Aufstocken</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal: Mitarbeiter-Detailansicht (Soll/Ist & Historie & PDF) -->
+    <div id="modalMitarbeiterProfile" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start border-b pb-4">
+                <div>
+                    <h3 id="profileName" class="text-xl font-bold text-slate-900">-</h3>
+                    <p id="profileDept" class="text-sm text-slate-500">-</p>
+                </div>
+                <button onclick="generateEmployeePDF()" class="text-xs bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5">
+                    📄 Ausgabebeleg (PDF)
+                </button>
+            </div>
+
+            <!-- Profile Sizes -->
+            <div class="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-lg text-sm text-slate-700">
+                <div><span class="text-xs text-slate-400 block">Oberteil</span><strong id="profOb">-</strong></div>
+                <div><span class="text-xs text-slate-400 block">Hose</span><strong id="profHose">-</strong></div>
+                <div><span class="text-xs text-slate-400 block">Schuhgröße</span><strong id="profSchuh">-</strong></div>
+            </div>
+
+            <!-- Issued Items History -->
+            <div>
+                <h4 class="font-bold text-slate-900 text-sm mb-2">Erhaltene Ausstattung</h4>
+                <div class="border rounded-lg overflow-hidden">
+                    <table class="w-full text-left text-xs text-slate-600">
+                        <thead class="bg-slate-100 text-slate-700 font-medium">
+                            <tr>
+                                <th class="p-2.5">Datum</th>
+                                <th class="p-2.5">Artikel</th>
+                                <th class="p-2.5">Größe</th>
+                                <th class="p-2.5">Menge</th>
+                                <th class="p-2.5">Bemerkung</th>
+                            </tr>
+                        </thead>
+                        <tbody id="profHistoryTable" class="divide-y divide-slate-100">
+                            <tr><td colspan="5" class="p-3 text-center text-slate-400">Keine Daten verfügbar</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button type="button" onclick="toggleModal('modalMitarbeiterProfile')" class="px-4 py-2 text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-lg">Schließen</button>
+            </div>
         </div>
     </div>
 
@@ -327,7 +386,6 @@
             maSelect.onchange = updateMitarbeiterSizes;
         }
 
-        // Auslesen & Anzeigen aller 3 Größen
         function updateMitarbeiterSizes() {
             const selectedMaName = document.getElementById("selectMitarbeiter").value;
             const hint = document.getElementById("maSizeHint");
@@ -338,7 +396,6 @@
             const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
             if (ma) {
                 const parts = [];
-                // Unterstützt alte und neue Tabellenstruktur (Kleidergroesse / Oberteilgroesse / Hosengroesse / Schuhgroesse)
                 const oberteil = ma.Oberteilgroesse || ma.Kleidergroesse;
                 const hose = ma.Hosengroesse;
                 const schuh = ma.Schuhgroesse;
@@ -350,13 +407,11 @@
                 hint.innerText = parts.length > 0 ? `Hinterlegt: ${parts.join(" | ")}` : "Keine Größen hinterlegt";
             }
 
-            // Falls bereits ein Artikel ausgewählt ist, Auswahl aktualisieren
             if (document.getElementById("selectArtikel").value) {
                 updateGroessenDropdown();
             }
         }
 
-        // Intelligente Größenvorauswahl basierend auf Kategorie
         function updateGroessenDropdown() {
             const selectedArtikelName = document.getElementById("selectArtikel").value;
             const groessenSelect = document.getElementById("selectGroesse");
@@ -365,6 +420,7 @@
                 groessenSelect.innerHTML = '<option value="">Erst Artikel wählen...</option>';
                 groessenSelect.disabled = true;
                 groessenSelect.classList.add("bg-slate-100");
+                document.getElementById("mismatchWarning").classList.add("hidden");
                 return;
             }
 
@@ -378,7 +434,6 @@
             groessenSelect.disabled = false;
             groessenSelect.classList.remove("bg-slate-100");
 
-            // Ermitteln, welche Größe bei der aktuellen Kategorie greift
             const selectedMaName = document.getElementById("selectMitarbeiter").value;
             if (selectedMaName && passendeArtikel.length > 0) {
                 const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
@@ -393,7 +448,6 @@
                     } else if (kategorie.includes("schuh")) {
                         targetSize = ma.Schuhgroesse;
                     } else {
-                        // Fallback
                         targetSize = ma.Oberteilgroesse || ma.Kleidergroesse || ma.Hosengroesse || ma.Schuhgroesse;
                     }
 
@@ -406,8 +460,45 @@
                 }
             }
 
-            groessenSelect.onchange = updateMaxMenge;
+            groessenSelect.onchange = () => {
+                updateMaxMenge();
+                checkSizeMismatch();
+            };
             updateMaxMenge();
+            checkSizeMismatch();
+        }
+
+        function checkSizeMismatch() {
+            const selectedMaName = document.getElementById("selectMitarbeiter").value;
+            const selectedArtikelName = document.getElementById("selectArtikel").value;
+            const selectedGroesse = document.getElementById("selectGroesse").value;
+            const warnBox = document.getElementById("mismatchWarning");
+
+            if (!selectedMaName || !selectedArtikelName || !selectedGroesse) {
+                warnBox.classList.add("hidden");
+                return;
+            }
+
+            const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
+            const passendeArtikel = (globalData.artikel || []).filter(a => a.Bezeichnung === selectedArtikelName);
+            if (!ma || passendeArtikel.length === 0) return;
+
+            const kategorie = (passendeArtikel[0].Kategorie || "").toLowerCase();
+            let expectedSize = "";
+
+            if (kategorie.includes("oberteil") || kategorie.includes("jacke") || kategorie.includes("shirt")) {
+                expectedSize = ma.Oberteilgroesse || ma.Kleidergroesse;
+            } else if (kategorie.includes("hose")) {
+                expectedSize = ma.Hosengroesse;
+            } else if (kategorie.includes("schuh")) {
+                expectedSize = ma.Schuhgroesse;
+            }
+
+            if (expectedSize && String(selectedGroesse).trim().toLowerCase() !== String(expectedSize).trim().toLowerCase()) {
+                warnBox.classList.remove("hidden");
+            } else {
+                warnBox.classList.add("hidden");
+            }
         }
 
         function updateMaxMenge() {
@@ -425,10 +516,10 @@
         }
 
         function renderTables() {
+            // Artikel-Tabelle
             const tblArt = document.getElementById("tblArtikel");
             const queryArt = document.getElementById("searchArtikel").value.toLowerCase();
             tblArt.innerHTML = "";
-            
             let artikelList = globalData.artikel || [];
 
             if (showOnlyKritisch) {
@@ -471,10 +562,26 @@
                 });
             }
 
+            // Historien-Tabelle mit Zeitfilter
             const tblZuw = document.getElementById("tblZuweisungen");
             const queryZuw = document.getElementById("searchZuweisung").value.toLowerCase();
+            const zeitraum = document.getElementById("filterZeitraum").value;
             tblZuw.innerHTML = "";
             let list = [...(globalData.zuweisungen || [])].reverse();
+
+            const now = new Date();
+            if (zeitraum !== "all") {
+                const days = parseInt(zeitraum);
+                list = list.filter(z => {
+                    if (!z.Zeitstempel) return false;
+                    const zDate = new Date(z.Zeitstempel);
+                    if (zeitraum === "365") {
+                        return zDate.getFullYear() === now.getFullYear();
+                    }
+                    const diffDays = (now - zDate) / (1000 * 60 * 60 * 24);
+                    return diffDays <= days;
+                });
+            }
 
             if (queryZuw) {
                 list = list.filter(z => {
@@ -485,7 +592,7 @@
             }
 
             if (list.length === 0) {
-                tblZuw.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-slate-400">Keine passenden Zuweisungen vorhanden</td></tr>`;
+                tblZuw.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-slate-400">Keine Zuweisungen im gewählten Zeitraum</td></tr>`;
             } else {
                 list.forEach(z => {
                     const mitarbeiter = z.MitarbeiterName || z.Mitarbeiter || '-';
@@ -522,6 +629,118 @@
             }
         }
 
+        // Öffnet das Profil & die getrennte Historie des gewählten Mitarbeiters
+        function openMitarbeiterProfile() {
+            const selectedMaName = document.getElementById("selectMitarbeiter").value;
+            if (!selectedMaName) {
+                alert("Bitte wähle zuerst einen Mitarbeiter im Formular aus.");
+                return;
+            }
+
+            const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
+            if (!ma) return;
+
+            document.getElementById("profileName").innerText = ma.Name;
+            document.getElementById("profileDept").innerText = `Abteilung: ${ma.Abteilung || 'Keine Angabe'}`;
+            document.getElementById("profOb").innerText = ma.Oberteilgroesse || ma.Kleidergroesse || '-';
+            document.getElementById("profHose").innerText = ma.Hosengroesse || '-';
+            document.getElementById("profSchuh").innerText = ma.Schuhgroesse || '-';
+
+            const userHistory = (globalData.zuweisungen || []).filter(z => (z.MitarbeiterName || z.Mitarbeiter) === ma.Name);
+            const tbl = document.getElementById("profHistoryTable");
+            tbl.innerHTML = "";
+
+            if (userHistory.length === 0) {
+                tbl.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-400">Keine Ausstattungen für diesen Mitarbeiter verbucht</td></tr>`;
+            } else {
+                userHistory.reverse().forEach(z => {
+                    let dStr = '-';
+                    if (z.Zeitstempel) {
+                        const d = new Date(z.Zeitstempel);
+                        if (!isNaN(d.getTime())) dStr = d.toLocaleDateString("de-DE");
+                    }
+                    tbl.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5">${dStr}</td>
+                            <td class="p-2.5 font-medium text-slate-800">${z.ArtikelName || z.Artikel}</td>
+                            <td class="p-2.5">${z.Groesse}</td>
+                            <td class="p-2.5 font-bold">${z.Menge}</td>
+                            <td class="p-2.5 text-slate-500">${z.Bemerkung || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            toggleModal("modalMitarbeiterProfile");
+        }
+
+        // Generiert ein druckfähiges Ausgabebeleg-PDF mit jsPDF
+        function generateEmployeePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const name = document.getElementById("profileName").innerText;
+            const dept = document.getElementById("profileDept").innerText;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("Ausgabebeleg / Empfangsbestätigung", 14, 20);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Mitarbeiter: ${name}`, 14, 30);
+            doc.text(`${dept}`, 14, 36);
+            doc.text(`Datum: ${new Date().toLocaleDateString("de-DE")}`, 14, 42);
+
+            doc.setLineWidth(0.5);
+            doc.line(14, 46, 196, 46);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Aushändigte Gegenstände / PSA:", 14, 54);
+
+            let y = 62;
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text("Datum", 14, y);
+            doc.text("Artikel", 40, y);
+            doc.text("Größe", 120, y);
+            doc.text("Menge", 145, y);
+            doc.text("Bemerkung", 165, y);
+            
+            y += 2;
+            doc.line(14, y, 196, y);
+            y += 6;
+
+            doc.setFont("helvetica", "normal");
+            const userHistory = (globalData.zuweisungen || []).filter(z => (z.MitarbeiterName || z.Mitarbeiter) === name);
+
+            userHistory.forEach(z => {
+                let dStr = '-';
+                if (z.Zeitstempel) {
+                    const d = new Date(z.Zeitstempel);
+                    if (!isNaN(d.getTime())) dStr = d.toLocaleDateString("de-DE");
+                }
+                doc.text(String(dStr), 14, y);
+                doc.text(String(z.ArtikelName || z.Artikel).substring(0, 35), 40, y);
+                doc.text(String(z.Groesse), 120, y);
+                doc.text(String(z.Menge), 145, y);
+                doc.text(String(z.Bemerkung || '-').substring(0, 15), 165, y);
+                y += 6;
+            });
+
+            y += 20;
+            if (y > 250) { doc.addPage(); y = 40; }
+
+            doc.text("Hiermit bestätige ich den ordnungsgemäßen Empfang der oben aufgeführten Gegenstände.", 14, y);
+            y += 25;
+            doc.line(14, y, 90, y);
+            doc.line(120, y, 196, y);
+            doc.text("Unterschrift Mitarbeiter", 14, y + 5);
+            doc.text("Unterschrift Ausgabe / Betrieb", 120, y + 5);
+
+            doc.save(`Ausgabebeleg_${name.replace(/\s+/g, '_')}.pdf`);
+        }
+
         async function submitBooking(e) {
             e.preventDefault();
             setButtonLoading("submitBtn", true);
@@ -537,6 +756,7 @@
 
             await sendApiRequest(payload, "Zuweisung erfolgreich gebucht!");
             document.getElementById("issueForm").reset();
+            document.getElementById("mismatchWarning").classList.add("hidden");
             updateGroessenDropdown();
             setButtonLoading("submitBtn", false);
         }
