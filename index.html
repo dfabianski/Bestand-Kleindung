@@ -9,6 +9,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
+    <!-- Toast Notification Banner -->
     <div id="toast" class="fixed top-5 right-5 z-50 hidden bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg font-medium transition-all duration-300">
         <span id="toastMsg">Aktion erfolgreich ausgeführt!</span>
     </div>
@@ -67,9 +68,9 @@
                             <label class="block text-sm font-medium text-slate-700">Mitarbeiter</label>
                             <button type="button" onclick="openMitarbeiterProfile()" class="text-xs text-blue-600 hover:underline">Profil & Historie</button>
                         </div>
-                        <select id="selectMitarbeiter" required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Lade Mitarbeiter...</option>
-                        </select>
+                        <!-- Such-Eingabefeld mit Datalist für schnelle Auswahl bei vielen Mitarbeitern -->
+                        <input type="text" id="selectMitarbeiter" list="mitarbeiterList" placeholder="Name tippen..." required class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <datalist id="mitarbeiterList"></datalist>
                         <p id="maSizeHint" class="text-xs text-slate-500 mt-1 h-5 leading-tight"></p>
                     </div>
 
@@ -369,12 +370,14 @@
         }
 
         function renderDropdowns() {
-            const maSelect = document.getElementById("selectMitarbeiter");
-            maSelect.innerHTML = '<option value="">-- Mitarbeiter wählen --</option>';
+            // Datalist für Echtzeitsuche bei vielen Mitarbeitern befüllen
+            const maList = document.getElementById("mitarbeiterList");
+            maList.innerHTML = '';
             (globalData.mitarbeiter || []).forEach(m => {
-                maSelect.innerHTML += `<option value="${m.Name}">${m.Name} (${m.Abteilung})</option>`;
+                maList.innerHTML += `<option value="${m.Name}">${m.Abteilung ? m.Abteilung : ''}</option>`;
             });
 
+            // Artikel-Dropdown
             const artSelect = document.getElementById("selectArtikel");
             artSelect.innerHTML = '<option value="">-- Artikel wählen --</option>';
             const uniqueArt = [...new Set((globalData.artikel || []).map(a => a.Bezeichnung))];
@@ -383,7 +386,9 @@
             });
 
             artSelect.onchange = updateGroessenDropdown;
-            maSelect.onchange = updateMitarbeiterSizes;
+            
+            const maInput = document.getElementById("selectMitarbeiter");
+            maInput.oninput = updateMitarbeiterSizes;
         }
 
         function updateMitarbeiterSizes() {
@@ -629,16 +634,18 @@
             }
         }
 
-        // Öffnet das Profil & die getrennte Historie des gewählten Mitarbeiters
         function openMitarbeiterProfile() {
             const selectedMaName = document.getElementById("selectMitarbeiter").value;
             if (!selectedMaName) {
-                alert("Bitte wähle zuerst einen Mitarbeiter im Formular aus.");
+                alert("Bitte tippe oder wähle zuerst einen Mitarbeiter aus.");
                 return;
             }
 
             const ma = (globalData.mitarbeiter || []).find(m => m.Name === selectedMaName);
-            if (!ma) return;
+            if (!ma) {
+                alert("Dieser Mitarbeiter wurde im System nicht gefunden.");
+                return;
+            }
 
             document.getElementById("profileName").innerText = ma.Name;
             document.getElementById("profileDept").innerText = `Abteilung: ${ma.Abteilung || 'Keine Angabe'}`;
@@ -674,7 +681,6 @@
             toggleModal("modalMitarbeiterProfile");
         }
 
-        // Generiert ein druckfähiges Ausgabebeleg-PDF mit jsPDF
         function generateEmployeePDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
